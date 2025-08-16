@@ -1,0 +1,166 @@
+{
+  "project": {
+    "name": "SiCal智能学习平台",
+    "description": "医学和药学智能学习平台文档系统",
+    "repository": "https://github.com/your-org/sical",
+    "documentation_root": "docs/"
+  },
+  "versioning": {
+    "scheme": "semantic",
+    "current_version": "1.0.0",
+    "version_prefix": "v",
+    "auto_increment": true,
+    "release_branches": ["main", "master"],
+    "development_branch": "develop"
+  },
+  "documents": {
+    "architecture": {
+      "path": "architecture/",
+      "version": "1.0.0",
+      "status": "approved",
+      "maintainers": ["架构师", "技术负责人"],
+      "review_required": true,
+      "auto_changelog": true
+    },
+    "features": {
+      "path": "features/",
+      "version": "1.0.0",
+      "status": "approved",
+      "maintainers": ["产品经理", "开发团队"],
+      "review_required": true,
+      "auto_changelog": true
+    },
+    "api": {
+      "path": "architecture/api-design.md",
+      "version": "1.0.0",
+      "status": "approved",
+      "maintainers": ["后端开发", "架构师"],
+      "review_required": true,
+      "auto_changelog": true
+    },
+    "database": {
+      "path": "architecture/database-design.md",
+      "version": "1.0.0",
+      "status": "approved",
+      "maintainers": ["数据库管理员", "后端开发"],
+      "review_required": true,
+      "auto_changelog": true
+    }
+  },
+  "workflow": {
+    "approval_matrix": {
+      "major_changes": {
+        "required_approvers": 2,
+        "roles": ["架构师", "产品经理", "技术负责人"],
+        "timeout_days": 5
+      },
+      "minor_changes": {
+        "required_approvers": 1,
+        "roles": ["技术负责人", "模块负责人"],
+        "timeout_days": 2
+      },
+      "patch_changes": {
+        "required_approvers": 1,
+        "roles": ["同行评审"],
+        "timeout_days": 1
+      }
+    },
+    "automation": {
+      "auto_version_bump": true,
+      "auto_changelog_generation": true,
+      "auto_archive_on_release": true,
+      "auto_notification": true
+    }
+  },
+  "templates": {
+    "feature_document": {
+      "path": "templates/feature-template.md",
+      "required_sections": [
+        "功能概述",
+        "技术要求",
+        "设计规范",
+        "测试计划"
+      ]
+    },
+    "architecture_document": {
+      "path": "templates/architecture-template.md",
+      "required_sections": [
+        "架构概述",
+        "技术选型",
+        "部署架构",
+        "安全考虑"
+      ]
+    },
+    "api_document": {
+      "path": "templates/api-template.md",
+      "required_sections": [
+        "接口概述",
+        "请求格式",
+        "响应格式",
+        "错误处理"
+      ]
+    }
+  },
+  "quality_gates": {
+    "required_metadata": [
+      "version",
+      "last_updated",
+      "author",
+      "status"
+    ],
+    "format_validation": {
+      "markdown_lint": true,
+      "link_validation": true,
+      "spell_check": false,
+      "yaml_frontmatter": true
+    },
+    "content_validation": {
+      "min_sections": 3,
+      "max_line_length": 120,
+      "require_examples": true,
+      "require_changelog": true
+    }
+  },
+  "archive": {
+    "strategy": "by_version",
+    "retention_policy": {
+      "keep_major_versions": 5,
+      "keep_minor_versions": 10,
+      "keep_patch_versions": 20
+    },
+    "compression": true,
+    "backup_location": "versions/"
+  },
+  "notifications": {
+    "channels": {
+      "email": {
+        "enabled": true,
+        "recipients": ["team@company.com"]
+      },
+      "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#docs-updates"
+      }
+    },
+    "events": {
+      "version_release": true,
+      "document_approval": true,
+      "major_changes": true,
+      "deprecation_warnings": true
+    }
+  },
+  "metrics": {
+    "tracking": {
+      "version_frequency": true,
+      "approval_time": true,
+      "document_coverage": true,
+      "change_impact": true
+    },
+    "reporting": {
+      "monthly_summary": true,
+      "quarterly_review": true,
+      "annual_audit": true
+    }
+  }
+}

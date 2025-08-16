@@ -1,0 +1,404 @@
+/* 触摸交互和手势支持优化 */
+
+/* 触摸目标最小尺寸 */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 触摸反馈效果 */
+@media (hover: none) and (pointer: coarse) {
+  /* 按钮触摸反馈 */
+  .ant-btn:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+  
+  /* 卡片触摸反馈 */
+  .ant-card:active {
+    transform: scale(0.99);
+    transition: transform 0.1s ease;
+  }
+  
+  /* 列表项触摸反馈 */
+  .ant-list-item:active,
+  .ant-menu-item:active {
+    background-color: var(--bg-hover);
+    transform: scale(0.99);
+    transition: all 0.1s ease;
+  }
+  
+  /* 链接触摸反馈 */
+  a:active {
+    opacity: 0.7;
+    transition: opacity 0.1s ease;
+  }
+  
+  /* 输入框触摸优化 */
+  .ant-input:focus,
+  .ant-input-password:focus,
+  .ant-select-focused .ant-select-selector {
+    transform: none;
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+}
+
+/* 滚动优化 */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* 防止双击缩放 */
+.no-zoom {
+  touch-action: manipulation;
+}
+
+/* 移动端导航手势 */
+.mobile-nav {
+  touch-action: pan-y;
+}
+
+/* 抽屉滑动优化 */
+.ant-drawer-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 模态框触摸优化 */
+.ant-modal {
+  touch-action: none;
+}
+
+.ant-modal-content {
+  touch-action: auto;
+}
+
+/* 表格横向滚动优化 */
+.ant-table-wrapper {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+/* 选择器下拉优化 */
+.ant-select-dropdown {
+  touch-action: pan-y;
+}
+
+/* 日期选择器触摸优化 */
+.ant-picker-dropdown {
+  touch-action: pan-y;
+}
+
+.ant-picker-cell {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+/* 分页器触摸优化 */
+.ant-pagination-item,
+.ant-pagination-prev,
+.ant-pagination-next {
+  min-height: 40px;
+  min-width: 40px;
+  touch-action: manipulation;
+}
+
+/* 标签页触摸优化 */
+.ant-tabs-tab {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* 开关组件触摸优化 */
+.ant-switch {
+  min-height: 28px;
+  min-width: 50px;
+  touch-action: manipulation;
+}
+
+/* 滑块组件触摸优化 */
+.ant-slider-handle {
+  width: 20px;
+  height: 20px;
+  touch-action: none;
+}
+
+.ant-slider-track,
+.ant-slider-rail {
+  height: 6px;
+}
+
+/* 评分组件触摸优化 */
+.ant-rate-star {
+  min-width: 32px;
+  min-height: 32px;
+  touch-action: manipulation;
+}
+
+/* 步骤条触摸优化 */
+.ant-steps-item-icon {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* 面包屑触摸优化 */
+.ant-breadcrumb a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* 标签触摸优化 */
+.ant-tag {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* 徽章触摸优化 */
+.ant-badge {
+  touch-action: manipulation;
+}
+
+/* 头像触摸优化 */
+.ant-avatar {
+  touch-action: manipulation;
+}
+
+/* 工具提示触摸优化 */
+@media (hover: none) {
+  .ant-tooltip {
+    display: none !important;
+  }
+}
+
+/* 弹出确认触摸优化 */
+.ant-popconfirm {
+  touch-action: none;
+}
+
+/* 气泡卡片触摸优化 */
+.ant-popover {
+  touch-action: none;
+}
+
+/* 下拉菜单触摸优化 */
+.ant-dropdown-menu-item {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* 菜单项触摸优化 */
+.ant-menu-item {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+.ant-menu-submenu-title {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* 折叠面板触摸优化 */
+.ant-collapse-header {
+  min-height: 48px;
+  touch-action: manipulation;
+}
+
+/* 时间轴触摸优化 */
+.ant-timeline-item {
+  touch-action: pan-y;
+}
+
+/* 锚点触摸优化 */
+.ant-anchor-link {
+  touch-action: manipulation;
+}
+
+.ant-anchor-link-title {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* 回到顶部触摸优化 */
+.ant-back-top {
+  width: 50px;
+  height: 50px;
+  touch-action: manipulation;
+}
+
+/* 固定元素触摸优化 */
+.fixed-element {
+  touch-action: none;
+}
+
+/* 拖拽元素优化 */
+.draggable {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 长按选择禁用 */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 图片触摸优化 */
+img {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 视频触摸优化 */
+video {
+  touch-action: manipulation;
+}
+
+/* 画布触摸优化 */
+canvas {
+  touch-action: none;
+}
+
+/* SVG 触摸优化 */
+svg {
+  touch-action: manipulation;
+}
+
+/* 表单元素触摸优化 */
+input[type="range"] {
+  touch-action: none;
+  min-height: 44px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 20px;
+  min-height: 20px;
+  touch-action: manipulation;
+}
+
+/* 自定义滚动条触摸优化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--bg-secondary);
+}
+
+/* 移动端特定的滚动条隐藏 */
+@media (max-width: 575.98px) {
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+/* 触摸设备专用样式 */
+@media (pointer: coarse) {
+  /* 增大可点击区域 */
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* 优化焦点样式 */
+  :focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+  
+  /* 移除悬停效果 */
+  .hover-effect:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* 横屏模式优化 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-landscape {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .ant-modal {
+    top: 10px;
+  }
+  
+  .ant-drawer-content {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* 安全区域适配 */
+@supports (padding: max(0px)) {
+  .safe-area-inset {
+    padding-left: max(var(--spacing-md), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-md), env(safe-area-inset-right));
+    padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-top {
+    padding-top: max(var(--spacing-md), env(safe-area-inset-top));
+  }
+}
+
+/* 减少动画以提升性能 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .ant-btn {
+    border-width: 2px;
+  }
+  
+  .ant-input,
+  .ant-select-selector {
+    border-width: 2px;
+  }
+}
+
+/* 深色模式触摸优化 */
+@media (prefers-color-scheme: dark) {
+  .touch-feedback {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* 浅色模式触摸优化 */
+@media (prefers-color-scheme: light) {
+  .touch-feedback {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+}

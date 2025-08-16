@@ -1,0 +1,1 @@
+{"version":3,"file":"learningPathRoutes.d.ts","sourceRoot":"","sources":["../../routes/learningPathRoutes.ts"],"names":[],"mappings":"AAAA,QAAA,MAAM,OAAO,KAAqB,CAAC;AACnC,QAAA,MAAM,MAAM,KAAmB,CAAC;AAChC,QAAA,MACE,gBAAgB,OAChB,eAAe,OACf,kBAAkB,OAClB,kBAAkB,OAClB,kBAAkB,OAClB,kBAAkB,OAClB,oBAAoB,OACpB,oBAAoB,OACpB,gBAAgB,KACkC,CAAC;AAErD,QAAA,MAAQ,OAAO,OAAE,SAAS,KAAkC,CAAC"}
