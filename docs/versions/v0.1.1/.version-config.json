@@ -1,0 +1,33 @@
+{
+  "version": "0.1.1",
+  "name": "Go后端重构版本",
+  "description": "完全使用Go重构后端，替代Node.js架构，提升性能和并发处理能力",
+  "release_date": "2024-03-15",
+  "status": "development",
+  "major_changes": [
+    "完全重构后端架构，从Node.js迁移到Go",
+    "采用清洁架构设计模式",
+    "实现高性能微服务架构",
+    "优化数据库设计和查询性能",
+    "重新设计API接口和安全机制"
+  ],
+  "breaking_changes": [
+    "后端技术栈完全更换",
+    "API响应格式可能有微调",
+    "数据库结构优化"
+  ],
+  "dependencies": {
+    "go_version": "1.21+",
+    "gin": "^1.9.0",
+    "gorm": "^1.25.0",
+    "postgresql": "^15.0",
+    "redis": "^7.0"
+  },
+  "documentation_structure": {
+    "architecture": "系统架构设计",
+    "features": "功能模块设计",
+    "api": "API接口设计",
+    "database": "数据库设计",
+    "deployment": "部署配置"
+  }
+}
