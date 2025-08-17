@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/admin/code/sical/frontend
+
+ ✓ test/e2e/login.e2e.test.ts > 登录页面 E2E 测试 > 应该能够检测登录成功 19020ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  23:33:58
+   Duration  20.45s (transform 33ms, setup 55ms, collect 97ms, tests 19.92s, environment 269ms, prepare 40ms)
+

@@ -89,6 +89,39 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+  
+  /* 字体大小 */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-h1: 32px;
+  --font-size-h2: 28px;
+  --font-size-h3: 24px;
+  --font-size-h4: 20px;
+  --font-size-h5: 18px;
+  --font-size-h6: 16px;
+  
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  
+  /* 状态颜色的浅色版本 */
+  --primary-light: rgba(24, 144, 255, 0.1);
+  --success-light: rgba(82, 196, 26, 0.1);
+  --warning-light: rgba(250, 173, 20, 0.1);
+  --error-light: rgba(255, 77, 79, 0.1);
+  --info-light: rgba(24, 144, 255, 0.1);
+  
+  /* 禁用状态颜色 */
+  --text-disabled: #bfbfbf;
+  --border-disabled: #d9d9d9;
+  --text-placeholder: #bfbfbf;
 }
 
 /* 基础HTML元素样式 */
