@@ -34,8 +34,27 @@ type JWTManager struct {
 	refreshExpiration time.Duration
 }
 
+// Config JWT配置
+type Config struct {
+	SecretKey            string        `json:"secret_key"`
+	AccessTokenExpiry    time.Duration `json:"access_token_expiry"`
+	RefreshTokenExpiry   time.Duration `json:"refresh_token_expiry"`
+	RefreshSecretKey     string        `json:"refresh_secret_key"`
+	Issuer               string        `json:"issuer"`
+}
+
 // NewJWTManager 创建JWT管理器
-func NewJWTManager(secret, issuer string, accessExpiration, refreshExpiration time.Duration) *JWTManager {
+func NewJWTManager(config *Config) *JWTManager {
+	return &JWTManager{
+		secret:            []byte(config.SecretKey),
+		issuer:            config.Issuer,
+		accessExpiration:  config.AccessTokenExpiry,
+		refreshExpiration: config.RefreshTokenExpiry,
+	}
+}
+
+// NewJWTManagerWithParams 使用参数创建JWT管理器
+func NewJWTManagerWithParams(secret, issuer string, accessExpiration, refreshExpiration time.Duration) *JWTManager {
 	return &JWTManager{
 		secret:            []byte(secret),
 		issuer:            issuer,

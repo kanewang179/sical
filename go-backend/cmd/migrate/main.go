@@ -92,6 +92,10 @@ func runMigration(db *database.Database) error {
 	// 定义所有需要迁移的模型
 	models := []interface{}{
 		&entities.User{},
+		&entities.LearningGoal{},
+		&entities.GoalAnalysis{},
+		&entities.LearningPath{},
+		&entities.KnowledgePoint{},
 	}
 
 	// 执行自动迁移

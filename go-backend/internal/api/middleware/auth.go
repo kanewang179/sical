@@ -28,15 +28,15 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// 从Header中提取Token
 		token := m.extractTokenFromHeader(c)
 		if token == "" {
-			response.Error(c, http.StatusUnauthorized, "缺少访问令牌", nil)
+			response.Error(c, http.StatusUnauthorized, response.CodeUnauthorized, "缺少访问令牌")
 			c.Abort()
 			return
 		}
 
 		// 验证Token
-		claims, err := m.jwtManager.VerifyToken(token)
+		claims, err := m.jwtManager.ValidateToken(token)
 		if err != nil {
-			response.Error(c, http.StatusUnauthorized, "无效的访问令牌", err)
+			response.Error(c, http.StatusUnauthorized, response.CodeUnauthorized, "无效的访问令牌")
 			c.Abort()
 			return
 		}
@@ -60,10 +60,10 @@ func (m *AuthMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 			return
 		}
 
-		// 检查角色
+		// 检查用户角色
 		userRole, exists := c.Get("user_role")
 		if !exists {
-			response.Error(c, http.StatusUnauthorized, "用户角色信息缺失", nil)
+			response.Error(c, http.StatusForbidden, response.CodeForbidden, "用户角色信息缺失")
 			c.Abort()
 			return
 		}
@@ -76,7 +76,7 @@ func (m *AuthMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 			}
 		}
 
-		response.Error(c, http.StatusForbidden, "权限不足", nil)
+		response.Error(c, http.StatusForbidden, response.CodeForbidden, "权限不足")
 		c.Abort()
 	}
 }
@@ -102,7 +102,7 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 		}
 
 		// 验证Token
-		claims, err := m.jwtManager.VerifyToken(token)
+		claims, err := m.jwtManager.ValidateToken(token)
 		if err != nil {
 			// Token无效，但不阻止请求继续
 			c.Next()

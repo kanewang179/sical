@@ -49,7 +49,7 @@ var (
 	// 手机号正则表达式（中国）
 	phoneRegex = regexp.MustCompile(`^1[3-9]\d{9}$`)
 	// 密码强度正则表达式（至少8位，包含大小写字母和数字）
-	strongPasswordRegex = regexp.MustCompile(`^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$`)
+	strongPasswordRegex = regexp.MustCompile(`^[A-Za-z\d@$!%*?&]{8,}$`)
 )
 
 // New 创建新的验证器

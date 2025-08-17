@@ -2,25 +2,30 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"sical-go-backend/internal/api/handlers"
 	"sical-go-backend/internal/api/middleware"
+	"sical-go-backend/internal/interfaces/http/routes"
 )
 
 // Router 路由配置
 type Router struct {
 	userHandler    *handlers.UserHandler
 	authMiddleware *middleware.AuthMiddleware
+	db             *gorm.DB
 }
 
 // NewRouter 创建路由实例
 func NewRouter(
 	userHandler *handlers.UserHandler,
 	authMiddleware *middleware.AuthMiddleware,
+	db *gorm.DB,
 ) *Router {
 	return &Router{
 		userHandler:    userHandler,
 		authMiddleware: authMiddleware,
+		db:             db,
 	}
 }
 
@@ -53,6 +58,13 @@ func (r *Router) SetupRoutes(engine *gin.Engine) {
 			user.GET("/profile", r.userHandler.GetProfile)
 			user.PUT("/profile", r.userHandler.UpdateProfile)
 			user.PUT("/password", r.userHandler.ChangePassword)
+		}
+
+		// 学习目标相关路由（需要认证）
+		learning := v1.Group("/learning")
+		learning.Use(r.authMiddleware.RequireAuth())
+		{
+			routes.SetupLearningGoalRoutes(learning, r.db)
 		}
 
 		// 管理员相关路由（需要管理员权限）

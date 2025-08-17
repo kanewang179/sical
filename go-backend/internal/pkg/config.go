@@ -185,14 +185,24 @@ func (c *Config) Validate() error {
 
 // GetDSN 获取数据库连接字符串
 func (c *Config) GetDSN() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Database.Host,
-		c.Database.Port,
-		c.Database.User,
-		c.Database.Password,
-		c.Database.DBName,
-		c.Database.SSLMode,
-	)
+	if c.Database.Password != "" {
+		return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			c.Database.User,
+			c.Database.Password,
+			c.Database.Host,
+			c.Database.Port,
+			c.Database.DBName,
+			c.Database.SSLMode,
+		)
+	} else {
+		return fmt.Sprintf("postgres://%s@%s:%d/%s?sslmode=%s",
+			c.Database.User,
+			c.Database.Host,
+			c.Database.Port,
+			c.Database.DBName,
+			c.Database.SSLMode,
+		)
+	}
 }
 
 // GetRedisAddr 获取Redis地址
