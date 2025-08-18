@@ -28,13 +28,15 @@ pipeline {
         DOCKER_REGISTRY = 'localhost:5000'
         IMAGE_NAME = 'sical-frontend'
         K8S_NAMESPACE = 'sical'
-        KUBECONFIG = credentials('kubeconfig')
         GIT_REPO = 'https://github.com/kanewang179/sical.git'
+        
+        // Docker镜像版本
+        NODE_IMAGE = 'node:18-alpine'
+        KUBECTL_IMAGE = 'bitnami/kubectl:latest'
+        TRIVY_IMAGE = 'aquasec/trivy:latest'
         
         // 国内镜像源配置
         NPM_REGISTRY = 'https://registry.npmmirror.com'
-        GOPROXY = 'https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct'
-        GOSUMDB = 'sum.golang.google.cn'
         DOCKER_BUILDKIT = '1'
     }
     
@@ -69,13 +71,20 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                dir('frontend') {
-                    sh '''
-                        echo "配置 npm 国内镜像源..."
-                        npm config set registry ${NPM_REGISTRY}
-                        echo "安装前端依赖..."
-                        npm ci
-                    '''
+                script {
+                    echo "使用 Docker 容器安装前端依赖..."
+                    sh """
+                        docker run --rm \
+                            -v \${PWD}/frontend:/app \
+                            -w /app \
+                            ${NODE_IMAGE} \
+                            sh -c '
+                                echo "配置 npm 国内镜像源..."
+                                npm config set registry ${NPM_REGISTRY}
+                                echo "安装前端依赖..."
+                                npm ci
+                            '
+                    """
                 }
             }
         }
@@ -85,12 +94,19 @@ pipeline {
                 not { params.SKIP_TESTS }
             }
             steps {
-                dir('frontend') {
-                    sh '''
-                        echo "运行测试..."
-                        npm run test:run
-                        npm run test:coverage
-                    '''
+                script {
+                    echo "使用 Docker 容器运行测试..."
+                    sh """
+                        docker run --rm \
+                            -v \${PWD}/frontend:/app \
+                            -w /app \
+                            ${NODE_IMAGE} \
+                            sh -c '
+                                echo "运行测试..."
+                                npm run test:run
+                                npm run test:coverage
+                            '
+                    """
                 }
             }
             post {
@@ -112,37 +128,45 @@ pipeline {
                 expression { params.SOURCE_TYPE == 'local' }
             }
             steps {
-                dir('frontend') {
-                    sh '''
-                        echo "构建应用..."
-                        npm run build
-                    '''
+                script {
+                    echo "使用 Docker 容器构建应用..."
+                    sh """
+                        docker run --rm \
+                            -v \${PWD}/frontend:/app \
+                            -w /app \
+                            ${NODE_IMAGE} \
+                            sh -c '
+                                echo "构建应用..."
+                                npm run build
+                            '
+                    """
                 }
             }
         }
         
         stage('Build Docker Image') {
             steps {
-                dir('frontend') {
-                    script {
-                        echo "构建 Docker 镜像，标签: ${BUILD_TAG}"
-                        
-                        def dockerFile = params.SOURCE_TYPE == 'github' ? 'Dockerfile.multistage' : 'Dockerfile'
-                        echo "使用 Dockerfile: ${dockerFile}"
-                        
-                        def image = docker.build(
-                            "${IMAGE_NAME}:${BUILD_TAG}", 
-                            "-f ${dockerFile} ."
-                        )
-                        
-                        // 推送到本地仓库
-                        docker.withRegistry("http://${DOCKER_REGISTRY}") {
-                            image.push()
-                            image.push('latest')
-                        }
-                        
-                        echo "镜像已推送: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
+                script {
+                    echo "构建 Docker 镜像，标签: ${BUILD_TAG}"
+                    
+                    def dockerFile = params.SOURCE_TYPE == 'github' ? 'Dockerfile.multistage' : 'Dockerfile'
+                    echo "使用 Dockerfile: ${dockerFile}"
+                    
+                    dir('frontend') {
+                        sh """
+                            # 构建镜像
+                            docker build -f ${dockerFile} -t ${IMAGE_NAME}:${BUILD_TAG} .
+                            docker tag ${IMAGE_NAME}:${BUILD_TAG} ${IMAGE_NAME}:latest
+                            
+                            # 推送到本地仓库
+                            docker tag ${IMAGE_NAME}:${BUILD_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
+                            docker tag ${IMAGE_NAME}:${BUILD_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                            docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
+                            docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                        """
                     }
+                    
+                    echo "镜像已推送: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
                 }
             }
         }
@@ -153,10 +177,12 @@ pipeline {
             }
             steps {
                 script {
-                    echo "运行安全扫描..."
+                    echo "使用 Docker 容器运行安全扫描..."
                     sh """
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                        aquasec/trivy image ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
+                        docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            ${TRIVY_IMAGE} \
+                            image ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
                     """
                 }
             }
@@ -165,56 +191,73 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    echo "部署到 Kubernetes..."
+                    echo "使用 Docker 容器部署到 Kubernetes..."
                     
-                    if (params.SOURCE_TYPE == 'github') {
+                    // 准备 kubeconfig
+                    withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        if (params.SOURCE_TYPE == 'github') {
+                            sh """
+                                docker run --rm \
+                                    -v \${PWD}/deployment/k8s:/k8s \
+                                    -v \${KUBECONFIG_FILE}:/root/.kube/config \
+                                    ${KUBECTL_IMAGE} \
+                                    sh -c '
+                                        # 创建命名空间（如果不存在）
+                                        kubectl apply -f /k8s/namespace.yaml
+                                        
+                                        # 应用ConfigMap（如果存在）
+                                        if [ -f /k8s/configmap.yaml ]; then
+                                            kubectl apply -f /k8s/configmap.yaml
+                                        fi
+                                        
+                                        # 备份原始部署文件
+                                        cp /k8s/frontend-deployment.yaml /k8s/frontend-deployment.yaml.bak
+                                        
+                                        # 更新部署镜像
+                                        sed -i "s|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g" /k8s/frontend-deployment.yaml
+                                        
+                                        # 部署应用
+                                        kubectl apply -f /k8s/frontend-deployment.yaml
+                                        
+                                        # 恢复原始文件
+                                        mv /k8s/frontend-deployment.yaml.bak /k8s/frontend-deployment.yaml
+                                    '
+                            """
+                        } else {
+                            sh """
+                                docker run --rm \
+                                    -v \${PWD}/deployment/k8s:/k8s \
+                                    -v \${KUBECONFIG_FILE}:/root/.kube/config \
+                                    ${KUBECTL_IMAGE} \
+                                    sh -c '
+                                        # 创建命名空间（如果不存在）
+                                        kubectl apply -f /k8s/namespace.yaml
+                                        
+                                        # 应用ConfigMap
+                                        kubectl apply -f /k8s/configmap.yaml
+                                        
+                                        # 更新部署镜像
+                                        sed -i "s|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g" /k8s/frontend-deployment.yaml
+                                        
+                                        # 部署应用
+                                        kubectl apply -f /k8s/frontend-deployment.yaml
+                                    '
+                            """
+                        }
+                        
                         sh """
-                            # 切换到部署目录
-                            cd deployment/k8s
-                            
-                            # 创建命名空间（如果不存在）
-                            kubectl apply -f namespace.yaml
-                            
-                            # 应用ConfigMap（如果存在）
-                            if [ -f configmap.yaml ]; then
-                                kubectl apply -f configmap.yaml
-                            fi
-                            
-                            # 备份原始部署文件
-                            cp frontend-deployment.yaml frontend-deployment.yaml.bak
-                            
-                            # 更新部署镜像
-                            sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' frontend-deployment.yaml
-                            
-                            # 部署应用
-                            kubectl apply -f frontend-deployment.yaml
-                            
-                            # 恢复原始文件
-                            mv frontend-deployment.yaml.bak frontend-deployment.yaml
-                        """
-                    } else {
-                        sh """
-                            # 创建命名空间（如果不存在）
-                            kubectl apply -f k8s/namespace.yaml
-                            
-                            # 应用ConfigMap
-                            kubectl apply -f k8s/configmap.yaml
-                            
-                            # 更新部署镜像
-                            sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' k8s/frontend-deployment.yaml
-                            
-                            # 部署应用
-                            kubectl apply -f k8s/frontend-deployment.yaml
+                            docker run --rm \
+                                -v \${KUBECONFIG_FILE}:/root/.kube/config \
+                                ${KUBECTL_IMAGE} \
+                                sh -c '
+                                    # 等待部署完成
+                                    kubectl rollout status deployment/sical-frontend -n ${K8S_NAMESPACE} --timeout=300s
+                                    
+                                    # 验证部署
+                                    kubectl get pods -n ${K8S_NAMESPACE} -l app=sical-frontend
+                                '
                         """
                     }
-                    
-                    sh """
-                        # 等待部署完成
-                        kubectl rollout status deployment/sical-frontend -n ${K8S_NAMESPACE} --timeout=300s
-                        
-                        # 验证部署
-                        kubectl get pods -n ${K8S_NAMESPACE} -l app=sical-frontend
-                    """
                 }
             }
         }
@@ -222,21 +265,28 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    echo "执行健康检查..."
-                    sh """
-                        # 等待服务就绪
-                        sleep 30
-                        
-                        # 获取服务端点
-                        SERVICE_IP=\$(kubectl get svc sical-frontend-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
-                        echo "服务 IP: \$SERVICE_IP"
-                        
-                        # 健康检查
-                        kubectl run health-check-${BUILD_NUMBER} --rm -i --restart=Never --image=curlimages/curl -- \
-                        curl -f http://\$SERVICE_IP/ || exit 1
-                        
-                        echo "健康检查通过！"
-                    """
+                    echo "使用 Docker 容器执行健康检查..."
+                    withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                            # 等待服务就绪
+                            sleep 30
+                            
+                            docker run --rm \
+                                -v \${KUBECONFIG_FILE}:/root/.kube/config \
+                                ${KUBECTL_IMAGE} \
+                                sh -c '
+                                    # 获取服务端点
+                                    SERVICE_IP=\$(kubectl get svc sical-frontend-service -n ${K8S_NAMESPACE} -o jsonpath="{.spec.clusterIP}")
+                                    echo "服务 IP: \$SERVICE_IP"
+                                    
+                                    # 健康检查
+                                    kubectl run health-check-${BUILD_NUMBER} --rm -i --restart=Never --image=curlimages/curl -- \
+                                    curl -f http://\$SERVICE_IP/ || exit 1
+                                    
+                                    echo "健康检查通过！"
+                                '
+                        """
+                    }
                 }
             }
         }
@@ -245,6 +295,11 @@ pipeline {
     post {
         always {
             echo "流水线完成，清理中..."
+            // 清理本地镜像
+            sh """
+                docker rmi ${IMAGE_NAME}:${BUILD_TAG} || true
+                docker rmi ${IMAGE_NAME}:latest || true
+            """
             // 清理工作空间
             cleanWs()
         }
