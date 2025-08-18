@@ -1,0 +1,102 @@
+#!groovy
+
+import jenkins.model.*
+import hudson.security.*
+import jenkins.security.s2m.AdminWhitelistRule
+import hudson.plugins.git.*
+import org.jenkinsci.plugins.docker.commons.credentials.*
+import com.cloudbees.plugins.credentials.*
+import com.cloudbees.plugins.credentials.domains.*
+import org.jenkinsci.plugins.kubernetes.credentials.FileSystemServiceAccountCredential
+import hudson.util.Secret
+
+def instance = Jenkins.getInstance()
+
+// 创建管理员用户
+def hudsonRealm = new HudsonPrivateSecurityRealm(false)
+hudsonRealm.createAccount("admin", "admin123")
+instance.setSecurityRealm(hudsonRealm)
+
+// 设置授权策略
+def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+instance.setAuthorizationStrategy(strategy)
+
+// 保存配置
+instance.save()
+
+// 安装必要的插件
+def pluginManager = instance.getPluginManager()
+def updateCenter = instance.getUpdateCenter()
+
+def plugins = [
+    "git",
+    "workflow-aggregator", // Pipeline plugin
+    "docker-workflow",
+    "kubernetes",
+    "kubernetes-credentials",
+    "blueocean",
+    "slack",
+    "htmlpublisher",
+    "build-timeout",
+    "timestamper",
+    "ws-cleanup"
+]
+
+plugins.each { pluginName ->
+    if (!pluginManager.getPlugin(pluginName)) {
+        def plugin = updateCenter.getPlugin(pluginName)
+        if (plugin) {
+            plugin.deploy(true)
+        }
+    }
+}
+
+// 添加Docker Registry凭据
+def dockerCredentials = new DockerServerCredentials(
+    CredentialsScope.GLOBAL,
+    "docker-registry",
+    "Local Docker Registry",
+    "localhost:5000",
+    null,
+    null
+)
+
+// 添加Kubernetes配置凭据
+def kubeConfigCredentials = new FileSystemServiceAccountCredential(
+    CredentialsScope.GLOBAL,
+    "kubeconfig",
+    "Kubernetes Config",
+    "/var/jenkins_home/.kube/config"
+)
+
+// 添加Git凭据（如果需要）
+def gitCredentials = new com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "git-credentials",
+    "Git Credentials",
+    "your-git-username",
+    "your-git-token"
+)
+
+// 保存凭据
+def credentialsStore = SystemCredentialsProvider.getInstance().getStore()
+credentialsStore.addCredentials(Domain.global(), dockerCredentials)
+credentialsStore.addCredentials(Domain.global(), kubeConfigCredentials)
+credentialsStore.addCredentials(Domain.global(), gitCredentials)
+
+// 配置全局工具
+def dockerTool = new org.jenkinsci.plugins.docker.commons.tools.DockerTool(
+    "docker",
+    "/usr/local/bin/docker",
+    []
+)
+
+def kubectl = new org.jenkinsci.plugins.kubernetes.cli.KubectlBuildWrapper.DescriptorImpl()
+kubectl.setKubectlPath("/usr/local/bin/kubectl")
+
+instance.save()
+
+println "Jenkins初始化完成！"
+println "管理员用户: admin"
+println "管理员密码: admin123"
+println "请访问 http://localhost:8080 登录Jenkins"

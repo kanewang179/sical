@@ -30,6 +30,12 @@ pipeline {
         K8S_NAMESPACE = 'sical'
         KUBECONFIG = credentials('kubeconfig')
         GIT_REPO = 'https://github.com/kanewang179/sical.git'
+        
+        // 国内镜像源配置
+        NPM_REGISTRY = 'https://registry.npmmirror.com'
+        GOPROXY = 'https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct'
+        GOSUMDB = 'sum.golang.google.cn'
+        DOCKER_BUILDKIT = '1'
     }
     
     stages {
@@ -65,6 +71,8 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
+                        echo "配置 npm 国内镜像源..."
+                        npm config set registry ${NPM_REGISTRY}
                         echo "安装前端依赖..."
                         npm ci
                     '''
