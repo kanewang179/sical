@@ -109,6 +109,40 @@
 | V2.0 | 多端同步+社区功能（可选） | 扩展场景与用户互动 |  
 
 
+## 🚀 部署说明
+
+本项目支持 Docker、Kubernetes 和 Jenkins 的本地部署。所有部署相关的配置文件已重新组织到 `deployment/` 目录下。
+
+### 快速部署
+
+```bash
+# 一键部署（推荐）
+./deploy.sh
+
+# 或者进入部署目录
+cd deployment/scripts
+./deploy.sh
+```
+
+### 部署文件结构
+
+```
+deployment/
+├── docker/          # Docker 配置
+├── k8s/             # Kubernetes 配置
+├── scripts/         # 自动化脚本
+├── ci/              # CI/CD 配置
+└── docs/            # 部署文档
+```
+
+### 详细文档
+
+- [部署指南](deployment/docs/DEPLOYMENT.md) - 完整的部署说明
+- [快速开始](deployment/docs/QUICKSTART.md) - 快速部署指南
+- [部署配置说明](deployment/README.md) - 配置文件说明
+
+---
+
 **文档状态**：初稿  
 **最后更新**：2025-08-17  
-**开发者备注**：功能模块可根据技术资源与用户需求灵活调整优先级，建议优先确保“目标输入→路径生成→内容学习”核心流程的流畅性。
+**开发者备注**：功能模块可根据技术资源与用户需求灵活调整优先级，建议优先确保"目标输入→路径生成→内容学习"核心流程的流畅性。

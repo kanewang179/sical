@@ -1,0 +1,153 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'localhost:5000'
+        IMAGE_NAME = 'sical-frontend'
+        K8S_NAMESPACE = 'sical'
+        KUBECONFIG = credentials('kubeconfig')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: "git rev-parse --short HEAD",
+                        returnStdout: true
+                    ).trim()
+                    env.BUILD_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                }
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'
+                }
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run test:run'
+                    sh 'npm run test:coverage'
+                }
+            }
+            post {
+                always {
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'frontend/coverage',
+                        reportFiles: 'index.html',
+                        reportName: 'Coverage Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Build Application') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build'
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                dir('frontend') {
+                    script {
+                        def image = docker.build("${IMAGE_NAME}:${BUILD_TAG}")
+                        docker.withRegistry("http://${DOCKER_REGISTRY}") {
+                            image.push()
+                            image.push('latest')
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                script {
+                    sh """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                        aquasec/trivy image ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
+                    """
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh """
+                        # 创建命名空间（如果不存在）
+                        kubectl apply -f k8s/namespace.yaml
+                        
+                        # 应用ConfigMap
+                        kubectl apply -f k8s/configmap.yaml
+                        
+                        # 更新部署镜像
+                        sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' k8s/frontend-deployment.yaml
+                        
+                        # 部署应用
+                        kubectl apply -f k8s/frontend-deployment.yaml
+                        
+                        # 等待部署完成
+                        kubectl rollout status deployment/sical-frontend -n ${K8S_NAMESPACE} --timeout=300s
+                        
+                        # 验证部署
+                        kubectl get pods -n ${K8S_NAMESPACE} -l app=sical-frontend
+                    """
+                }
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                script {
+                    sh """
+                        # 等待服务就绪
+                        sleep 30
+                        
+                        # 获取服务端点
+                        SERVICE_IP=\$(kubectl get svc sical-frontend-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
+                        
+                        # 健康检查
+                        kubectl run health-check --rm -i --restart=Never --image=curlimages/curl -- \
+                        curl -f http://\$SERVICE_IP/health || exit 1
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline succeeded!'
+            slackSend(
+                channel: '#deployments',
+                color: 'good',
+                message: "✅ Frontend deployment successful: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+            )
+        }
+        failure {
+            echo 'Pipeline failed!'
+            slackSend(
+                channel: '#deployments',
+                color: 'danger',
+                message: "❌ Frontend deployment failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+            )
+        }
+    }
+}

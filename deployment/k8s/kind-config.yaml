@@ -1,0 +1,61 @@
+# Kind cluster configuration for local development
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: sical-cluster
+
+# 网络配置
+networking:
+  # 禁用默认CNI，我们将使用Calico
+  disableDefaultCNI: false
+  # 设置Pod和Service的CIDR
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
+  # API服务器端口
+  apiServerPort: 6443
+
+# 节点配置
+nodes:
+# 控制平面节点
+- role: control-plane
+  image: kindest/node:v1.28.0
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  # Nginx Ingress Controller端口映射
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+  # 本地Registry端口映射
+  - containerPort: 5000
+    hostPort: 5000
+    protocol: TCP
+  extraMounts:
+  # 挂载本地Docker socket（用于构建镜像）
+  - hostPath: /var/run/docker.sock
+    containerPath: /var/run/docker.sock
+
+# 工作节点
+- role: worker
+  image: kindest/node:v1.28.0
+  extraMounts:
+  - hostPath: /var/run/docker.sock
+    containerPath: /var/run/docker.sock
+
+- role: worker
+  image: kindest/node:v1.28.0
+  extraMounts:
+  - hostPath: /var/run/docker.sock
+    containerPath: /var/run/docker.sock
+
+# 容器运行时配置
+containerdConfigPatches:
+- |
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+    endpoint = ["http://localhost:5000"]
