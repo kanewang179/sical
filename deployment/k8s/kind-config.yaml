@@ -17,7 +17,7 @@ networking:
 nodes:
 # 控制平面节点
 - role: control-plane
-  image: kindest/node:v1.28.0
+  image: kindest/node:v1.31.1
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration
@@ -32,10 +32,7 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
-  # 本地Registry端口映射
-  - containerPort: 5000
-    hostPort: 5000
-    protocol: TCP
+  # 本地Registry端口映射已移除，使用本地镜像
   extraMounts:
   # 挂载本地Docker socket（用于构建镜像）
   - hostPath: /var/run/docker.sock
@@ -43,13 +40,13 @@ nodes:
 
 # 工作节点
 - role: worker
-  image: kindest/node:v1.28.0
+  image: kindest/node:v1.31.1
   extraMounts:
   - hostPath: /var/run/docker.sock
     containerPath: /var/run/docker.sock
 
 - role: worker
-  image: kindest/node:v1.28.0
+  image: kindest/node:v1.31.1
   extraMounts:
   - hostPath: /var/run/docker.sock
     containerPath: /var/run/docker.sock
