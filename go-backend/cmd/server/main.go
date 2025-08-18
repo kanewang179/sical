@@ -122,6 +122,12 @@ func main() {
 	learningGroup := engine.Group("/api/v1/learning")
 	learningGroup.Use(authMiddleware.RequireAuth())
 	routes.SetupLearningGoalRoutes(learningGroup, db)
+	
+	// 设置学习路径路由
+	routes.SetupLearningPathRoutes(engine, db)
+	
+	// 设置知识点路由
+	routes.SetupKnowledgePointRoutes(engine, db)
 
 	// 创建HTTP服务器
 	server := &http.Server{
