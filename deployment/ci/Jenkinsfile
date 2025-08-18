@@ -1,23 +1,62 @@
 pipeline {
     agent any
     
+    parameters {
+        choice(
+            name: 'SOURCE_TYPE',
+            choices: ['github', 'local'],
+            description: '选择代码来源：GitHub 仓库或本地 SCM'
+        )
+        string(
+            name: 'GIT_BRANCH',
+            defaultValue: 'main',
+            description: 'Git 分支名称（仅当选择 GitHub 时有效）'
+        )
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: '跳过测试阶段'
+        )
+        booleanParam(
+            name: 'SKIP_SECURITY_SCAN',
+            defaultValue: false,
+            description: '跳过安全扫描'
+        )
+    }
+    
     environment {
         DOCKER_REGISTRY = 'localhost:5000'
         IMAGE_NAME = 'sical-frontend'
         K8S_NAMESPACE = 'sical'
         KUBECONFIG = credentials('kubeconfig')
+        GIT_REPO = 'https://github.com/kanewang179/sical.git'
     }
     
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
                 script {
+                    if (params.SOURCE_TYPE == 'github') {
+                        echo "从 GitHub 拉取代码: ${params.GIT_BRANCH} 分支"
+                        // 清理工作空间
+                        cleanWs()
+                        
+                        // 从 GitHub 拉取代码
+                        git branch: "${params.GIT_BRANCH}", 
+                            credentialsId: 'git-credentials',
+                            url: "${GIT_REPO}"
+                    } else {
+                        echo "使用本地 SCM 代码"
+                        checkout scm
+                    }
+                    
+                    // 设置构建标签
                     env.GIT_COMMIT_SHORT = sh(
                         script: "git rev-parse --short HEAD",
                         returnStdout: true
                     ).trim()
                     env.BUILD_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                    echo "构建版本: ${env.BUILD_TAG}"
                 }
             }
         }
@@ -25,16 +64,25 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 dir('frontend') {
-                    sh 'npm ci'
+                    sh '''
+                        echo "安装前端依赖..."
+                        npm ci
+                    '''
                 }
             }
         }
         
         stage('Run Tests') {
+            when {
+                not { params.SKIP_TESTS }
+            }
             steps {
                 dir('frontend') {
-                    sh 'npm run test:run'
-                    sh 'npm run test:coverage'
+                    sh '''
+                        echo "运行测试..."
+                        npm run test:run
+                        npm run test:coverage
+                    '''
                 }
             }
             post {
@@ -52,9 +100,15 @@ pipeline {
         }
         
         stage('Build Application') {
+            when {
+                expression { params.SOURCE_TYPE == 'local' }
+            }
             steps {
                 dir('frontend') {
-                    sh 'npm run build'
+                    sh '''
+                        echo "构建应用..."
+                        npm run build
+                    '''
                 }
             }
         }
@@ -63,19 +117,35 @@ pipeline {
             steps {
                 dir('frontend') {
                     script {
-                        def image = docker.build("${IMAGE_NAME}:${BUILD_TAG}")
+                        echo "构建 Docker 镜像，标签: ${BUILD_TAG}"
+                        
+                        def dockerFile = params.SOURCE_TYPE == 'github' ? 'Dockerfile.multistage' : 'Dockerfile'
+                        echo "使用 Dockerfile: ${dockerFile}"
+                        
+                        def image = docker.build(
+                            "${IMAGE_NAME}:${BUILD_TAG}", 
+                            "-f ${dockerFile} ."
+                        )
+                        
+                        // 推送到本地仓库
                         docker.withRegistry("http://${DOCKER_REGISTRY}") {
                             image.push()
                             image.push('latest')
                         }
+                        
+                        echo "镜像已推送: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
                     }
                 }
             }
         }
         
         stage('Security Scan') {
+            when {
+                not { params.SKIP_SECURITY_SCAN }
+            }
             steps {
                 script {
+                    echo "运行安全扫描..."
                     sh """
                         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy image ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
@@ -87,19 +157,50 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
+                    echo "部署到 Kubernetes..."
+                    
+                    if (params.SOURCE_TYPE == 'github') {
+                        sh """
+                            # 切换到部署目录
+                            cd deployment/k8s
+                            
+                            # 创建命名空间（如果不存在）
+                            kubectl apply -f namespace.yaml
+                            
+                            # 应用ConfigMap（如果存在）
+                            if [ -f configmap.yaml ]; then
+                                kubectl apply -f configmap.yaml
+                            fi
+                            
+                            # 备份原始部署文件
+                            cp frontend-deployment.yaml frontend-deployment.yaml.bak
+                            
+                            # 更新部署镜像
+                            sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' frontend-deployment.yaml
+                            
+                            # 部署应用
+                            kubectl apply -f frontend-deployment.yaml
+                            
+                            # 恢复原始文件
+                            mv frontend-deployment.yaml.bak frontend-deployment.yaml
+                        """
+                    } else {
+                        sh """
+                            # 创建命名空间（如果不存在）
+                            kubectl apply -f k8s/namespace.yaml
+                            
+                            # 应用ConfigMap
+                            kubectl apply -f k8s/configmap.yaml
+                            
+                            # 更新部署镜像
+                            sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' k8s/frontend-deployment.yaml
+                            
+                            # 部署应用
+                            kubectl apply -f k8s/frontend-deployment.yaml
+                        """
+                    }
+                    
                     sh """
-                        # 创建命名空间（如果不存在）
-                        kubectl apply -f k8s/namespace.yaml
-                        
-                        # 应用ConfigMap
-                        kubectl apply -f k8s/configmap.yaml
-                        
-                        # 更新部署镜像
-                        sed -i 's|image: sical-frontend:latest|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}|g' k8s/frontend-deployment.yaml
-                        
-                        # 部署应用
-                        kubectl apply -f k8s/frontend-deployment.yaml
-                        
                         # 等待部署完成
                         kubectl rollout status deployment/sical-frontend -n ${K8S_NAMESPACE} --timeout=300s
                         
@@ -113,16 +214,20 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
+                    echo "执行健康检查..."
                     sh """
                         # 等待服务就绪
                         sleep 30
                         
                         # 获取服务端点
                         SERVICE_IP=\$(kubectl get svc sical-frontend-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
+                        echo "服务 IP: \$SERVICE_IP"
                         
                         # 健康检查
-                        kubectl run health-check --rm -i --restart=Never --image=curlimages/curl -- \
-                        curl -f http://\$SERVICE_IP/health || exit 1
+                        kubectl run health-check-${BUILD_NUMBER} --rm -i --restart=Never --image=curlimages/curl -- \
+                        curl -f http://\$SERVICE_IP/ || exit 1
+                        
+                        echo "健康检查通过！"
                     """
                 }
             }
@@ -131,23 +236,45 @@ pipeline {
     
     post {
         always {
+            echo "流水线完成，清理中..."
+            // 清理工作空间
             cleanWs()
         }
         success {
-            echo 'Pipeline succeeded!'
-            slackSend(
-                channel: '#deployments',
-                color: 'good',
-                message: "✅ Frontend deployment successful: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            )
+            echo '流水线执行成功！'
+            script {
+                if (env.SLACK_WEBHOOK) {
+                    slackSend(
+                        channel: '#deployments',
+                        color: 'good',
+                        message: "✅ 前端部署成功: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (${env.BUILD_TAG}) - 来源: ${params.SOURCE_TYPE} (<${env.BUILD_URL}|打开>)"
+                    )
+                }
+            }
         }
         failure {
-            echo 'Pipeline failed!'
-            slackSend(
-                channel: '#deployments',
-                color: 'danger',
-                message: "❌ Frontend deployment failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            )
+            echo '流水线执行失败！'
+            script {
+                if (env.SLACK_WEBHOOK) {
+                    slackSend(
+                        channel: '#deployments',
+                        color: 'danger',
+                        message: "❌ 前端部署失败: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (${env.BUILD_TAG}) - 来源: ${params.SOURCE_TYPE} (<${env.BUILD_URL}|打开>)"
+                    )
+                }
+            }
+        }
+        unstable {
+            echo '流水线状态不稳定！'
+            script {
+                if (env.SLACK_WEBHOOK) {
+                    slackSend(
+                        channel: '#deployments',
+                        color: 'warning',
+                        message: "⚠️ 前端部署不稳定: ${env.JOB_NAME} - ${env.BUILD_NUMBER} (${env.BUILD_TAG}) - 来源: ${params.SOURCE_TYPE} (<${env.BUILD_URL}|打开>)"
+                    )
+                }
+            }
         }
     }
 }
