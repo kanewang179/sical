@@ -1,55 +1,30 @@
-# Jenkins with GitHub Integration Support
+# Jenkins with Docker-only Integration Support
 FROM jenkins/jenkins:lts
 
 # Switch to root to install packages
 USER root
 
 # Configure China mirrors for faster downloads
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list \
-    && sed -i 's/security.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources || \
+    sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources || \
+    sed -i 's/security.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
 
-# Install necessary tools
+# Install only essential tools
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
-    unzip \
-    apt-transport-https \
     ca-certificates \
     gnupg \
     lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI (using China mirror)
+# Install Docker CLI only (no local tools) - using China mirror
 RUN curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.ustc.edu.cn/docker-ce/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
     && apt-get update \
     && apt-get install -y docker-ce-cli
-
-# Install kubectl (using China mirror)
-RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) \
-    && curl -LO "https://kubernetes.oss-cn-hangzhou.aliyuncs.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
-
-# Install kind
-RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 \
-    && chmod +x ./kind \
-    && mv ./kind /usr/local/bin/kind
-
-# Install Helm (using China mirror)
-RUN curl -fsSL https://mirrors.huaweicloud.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://mirrors.huaweicloud.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list \
-    && apt-get update \
-    && apt-get install -y helm
-
-# Install Node.js and npm (using China mirror)
-RUN curl -fsSL https://mirrors.ustc.edu.cn/nodesource/deb_18.x/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && npm config set registry https://registry.npmmirror.com
-
-# Create .kube directory for jenkins user
-RUN mkdir -p /var/jenkins_home/.kube && chown jenkins:jenkins /var/jenkins_home/.kube
 
 # Add jenkins user to docker group
 RUN groupadd -f docker && usermod -aG docker jenkins

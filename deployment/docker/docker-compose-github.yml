@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Jenkins GitHub版本 - 使用Docker-only配置
+  jenkins-github:
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile.github
+      args:
+        BUILDKIT_PROGRESS: plain
+        BUILDKIT_INLINE_CACHE: 1
+    image: jenkins-github:docker-only
+    container_name: jenkins-github
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ../../jenkins-data-github:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JENKINS_OPTS=--httpPort=8080
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # GitHub集成环境变量
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+    networks:
+      - sical-github
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 本地Docker Registry - 用于存储构建的镜像
+  registry:
+    image: registry:2
+    container_name: local-registry-github
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data-github:/var/lib/registry
+    networks:
+      - sical-github
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+
+volumes:
+  registry-data-github:
+    driver: local
+
+networks:
+  sical-github:
+    driver: bridge
+    name: sical-github-network
