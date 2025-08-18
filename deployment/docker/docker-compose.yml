@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # 本地Docker Registry
   registry:
-    image: registry:2
+    image: registry:latest
     container_name: local-registry
     ports:
       - "5000:5000"

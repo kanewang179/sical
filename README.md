@@ -113,30 +113,75 @@
 
 本项目支持 Docker、Kubernetes 和 Jenkins 的本地部署。所有部署相关的配置文件已重新组织到 `deployment/` 目录下。
 
+### 环境要求
+
+在开始部署之前，请确保您的系统已安装以下工具：
+
+- **必需工具**: Docker, Docker Compose, kubectl, Node.js, npm
+- **Kubernetes 集群**: Kind 或 Docker Desktop Kubernetes
+- **可选工具**: Helm (用于高级 Kubernetes 管理)
+
+### 🛠️ 环境配置
+
+#### 自动安装依赖（推荐）
+
+```bash
+# 运行自动安装脚本（仅适用于 macOS）
+./install-deps.sh
+```
+
+#### 手动检查环境
+
+```bash
+# 检查当前环境状态
+docker --version
+kubectl version --client
+kind version
+helm version
+node --version
+npm --version
+```
+
 ### 快速部署
 
 ```bash
 # 一键部署（推荐）
 ./deploy.sh
 
-# 或者进入部署目录
-cd deployment/scripts
-./deploy.sh
+# 或者分步执行
+./deploy.sh --setup    # 初始化环境
+./deploy.sh --build    # 构建应用
+./deploy.sh --deploy   # 部署应用
 ```
 
 ### 部署文件结构
 
 ```
 deployment/
-├── docker/          # Docker 配置
-├── k8s/             # Kubernetes 配置
-├── scripts/         # 自动化脚本
-├── ci/              # CI/CD 配置
-└── docs/            # 部署文档
+├── README.md              # 部署说明文档
+├── ci/                    # CI/CD 配置
+│   └── Jenkinsfile       # Jenkins Pipeline
+├── docker/                # Docker 配置
+│   ├── docker-compose.yml # Docker Compose 配置
+│   └── jenkins/          # Jenkins 容器配置
+├── docs/                  # 部署相关文档
+│   ├── DEPLOYMENT.md     # 详细部署指南
+│   ├── QUICKSTART.md     # 快速开始指南
+│   └── ENVIRONMENT_SETUP.md  # 环境配置指南
+├── k8s/                   # Kubernetes 配置
+│   ├── configmap.yaml    # 配置映射
+│   ├── frontend-deployment.yaml  # 前端部署
+│   ├── kind-config.yaml  # Kind 集群配置
+│   └── namespace.yaml    # 命名空间
+└── scripts/               # 部署脚本
+    ├── deploy.sh         # 主部署脚本
+    ├── setup-jenkins.sh  # Jenkins 设置
+    └── setup-k8s.sh     # Kubernetes 设置
 ```
 
 ### 详细文档
 
+- [环境配置指南](deployment/docs/ENVIRONMENT_SETUP.md) 🆕
 - [部署指南](deployment/docs/DEPLOYMENT.md) - 完整的部署说明
 - [快速开始](deployment/docs/QUICKSTART.md) - 快速部署指南
 - [部署配置说明](deployment/README.md) - 配置文件说明

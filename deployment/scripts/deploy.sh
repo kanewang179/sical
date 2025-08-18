@@ -38,6 +38,7 @@ show_help() {
     echo "  --skip-tests            跳过测试步骤"
     echo "  --skip-build            跳过构建步骤"
     echo "  --dev                   开发模式部署"
+    echo "  --configure-mirrors     配置Docker和Kind镜像源"
     echo ""
     echo "示例:"
     echo "  $0                      完整部署流程"
@@ -45,6 +46,7 @@ show_help() {
     echo "  $0 --build              仅构建镜像"
     echo "  $0 --deploy             仅部署应用"
     echo "  $0 --clean              清理环境"
+    echo "  $0 --configure-mirrors  配置镜像源（解决网络问题）"
 }
 
 # 解析命令行参数
@@ -56,6 +58,7 @@ RESTART_ONLY=false
 SKIP_TESTS=false
 SKIP_BUILD=false
 DEV_MODE=false
+CONFIGURE_MIRRORS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -93,6 +96,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dev)
             DEV_MODE=true
+            shift
+            ;;
+        --configure-mirrors)
+            CONFIGURE_MIRRORS=true
             shift
             ;;
         *)
@@ -281,6 +288,34 @@ health_check() {
     echo -e "${GREEN}✅ 健康检查通过${NC}"
 }
 
+# 配置镜像源
+configure_registry_mirrors() {
+    echo -e "${BLUE}🔧 配置Docker和Kind镜像源...${NC}"
+    
+    # 获取项目根目录
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    
+    # 检查镜像源配置脚本是否存在
+    MIRROR_SCRIPT="$PROJECT_ROOT/configure-registry-mirrors.sh"
+    
+    if [ ! -f "$MIRROR_SCRIPT" ]; then
+        echo -e "${RED}❌ 镜像源配置脚本不存在: $MIRROR_SCRIPT${NC}"
+        echo -e "${YELLOW}请确保 configure-registry-mirrors.sh 脚本存在于项目根目录${NC}"
+        exit 1
+    fi
+    
+    # 执行镜像源配置脚本
+    echo -e "${BLUE}执行镜像源配置脚本...${NC}"
+    cd "$PROJECT_ROOT"
+    bash "$MIRROR_SCRIPT"
+    
+    echo -e "${GREEN}✅ 镜像源配置完成${NC}"
+    echo -e "${YELLOW}⚠️  请重启 Docker Desktop 以应用新配置${NC}"
+    echo -e "${BLUE}配置完成后，可以使用以下命令创建集群:${NC}"
+    echo "kind create cluster --config deployment/k8s/kind-config-with-mirrors.yaml"
+}
+
 # 清理资源
 clean_resources() {
     echo -e "${YELLOW}🧹 清理资源...${NC}"
@@ -352,7 +387,10 @@ main() {
     check_prerequisites
     
     # 根据参数执行相应操作
-    if [ "$CLEAN_ONLY" = true ]; then
+    if [ "$CONFIGURE_MIRRORS" = true ]; then
+        configure_registry_mirrors
+        exit 0
+    elif [ "$CLEAN_ONLY" = true ]; then
         clean_resources
         exit 0
     elif [ "$SETUP_ONLY" = true ]; then
