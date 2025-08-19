@@ -175,3 +175,12 @@ local-*
 
 
 jenkins.credential.groovy
+
+// 添加Git凭据（GitHub Personal Access Token）
+def gitCredentials = new com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "git-credentials",
+    "GitHub Credentials",
+    "kanewang179",
+    "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"
+)
