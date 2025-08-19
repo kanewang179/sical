@@ -11,27 +11,33 @@ def updateCenter = jenkins.getUpdateCenter()
 // 清除现有的更新站点
 updateCenter.getSites().clear()
 
+// 从环境变量读取镜像源配置，如果没有则使用默认值
+def getJenkinsUpdateCenter() {
+    return System.getenv('JENKINS_UPDATE_CENTER')
+}
+
 // 添加国内镜像源
+def baseUrl = getJenkinsUpdateCenter()
 def chinaMirrors = [
     [
         id: 'tsinghua',
-        url: 'https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json',
+        url: "${baseUrl}/update-center.json",
         note: '清华大学镜像源'
+    ],
+    [
+        id: 'primary',
+        url: System.getenv('JENKINS_UPDATE_CENTER') + '/update-center.json',
+        note: '主镜像源'
     ],
     [
         id: 'ustc', 
         url: 'https://mirrors.ustc.edu.cn/jenkins/updates/update-center.json',
-        note: '中科大镜像源'
+        note: '中科大镜像源（备用）'
     ],
     [
         id: 'huawei',
         url: 'https://mirrors.huaweicloud.com/jenkins/updates/update-center.json', 
-        note: '华为云镜像源'
-    ],
-    [
-        id: 'aliyun',
-        url: 'https://mirrors.aliyun.com/jenkins/updates/update-center.json',
-        note: '阿里云镜像源'
+        note: '华为云镜像源（备用）'
     ]
 ]
 
@@ -67,7 +73,7 @@ for (mirror in chinaMirrors) {
 // 如果所有国内镜像源都不可用，使用官方源作为备用
 if (!mirrorAdded) {
     println "⚠️  所有国内镜像源不可用，使用官方更新中心"
-    def defaultSite = new UpdateSite('default', 'https://updates.jenkins.io/update-center.json')
+    def defaultSite = new UpdateSite('default', System.getenv('JENKINS_UPDATE_CENTER') + '/update-center.json')
     updateCenter.getSites().add(defaultSite)
 }
 

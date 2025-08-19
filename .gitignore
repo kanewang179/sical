@@ -1,1 +1,10 @@
 node_modules
+
+# Jenkins data directory
+jenkins-data-github/
+
+# Docker data directory
+docker-data-github/
+
+*/node_modules
+*/docker-data-github

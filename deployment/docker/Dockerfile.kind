@@ -1,0 +1,16 @@
+# Kind Kubernetes集群容器
+# 基于官方Kind镜像
+
+FROM kindest/node:v1.27.3
+
+# 复制Kind集群配置文件
+COPY docker/kind-config-docker-only.yaml /kind-config.yaml
+
+# 暴露Kubernetes API端口
+EXPOSE 6443
+
+# 暴露Ingress端口
+EXPOSE 80 443
+
+# 启动Kind集群
+CMD ["/usr/local/bin/entrypoint", "/sbin/init"]

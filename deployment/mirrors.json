@@ -1,0 +1,133 @@
+{
+  "description": "统一镜像源配置文件 - 用于加速国内下载",
+  "version": "1.0.0",
+  "last_updated": "2024-01-20",
+  "mirrors": {
+    "npm": {
+      "registry": "https://registry.npmmirror.com",
+      "description": "淘宝 npm 镜像源",
+      "backup": "https://registry.npm.taobao.org"
+    },
+    "docker": {
+      "registry_mirrors": [
+        "https://docker.m.daocloud.io",
+        "https://docker.unsee.tech",
+        "https://dockerpull.org",
+        "https://hub.rat.dev",
+        "https://docker.rainbond.cc"
+      ],
+      "description": "Docker 镜像加速器 - 2024年可用源",
+      "hub_proxy": {
+        "primary": "docker.m.daocloud.io",
+        "backup": "hub.rat.dev",
+        "alternative": "dockerpull.org",
+        "fallback": "docker.unsee.tech",
+        "description": "Docker Hub 代理服务 - 优先使用docker.m.daocloud.io镜像"
+      }
+    },
+    "kubernetes": {
+      "image_repository": "registry.cn-hangzhou.aliyuncs.com/google_containers",
+      "description": "阿里云 Kubernetes 镜像仓库",
+      "backup": "registry.aliyuncs.com/google_containers"
+    },
+    "golang": {
+      "goproxy": "https://goproxy.cn,direct",
+      "description": "七牛云 Go 模块代理",
+      "backup": "https://mirrors.aliyun.com/goproxy/"
+    },
+    "ubuntu": {
+      "archive": "https://mirrors.aliyun.com/ubuntu/",
+      "security": "https://mirrors.aliyun.com/ubuntu/",
+      "description": "阿里云 Ubuntu 软件源",
+      "backup": "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/"
+    },
+    "debian": {
+      "archive": "https://mirrors.aliyun.com/debian/",
+      "security": "https://mirrors.aliyun.com/debian-security/",
+      "description": "阿里云 Debian 软件源",
+      "backup": "https://mirrors.tuna.tsinghua.edu.cn/debian/"
+    },
+    "alpine": {
+      "main": "https://mirrors.aliyun.com/alpine/",
+      "description": "阿里云 Alpine 软件源",
+      "backup": "https://mirrors.tuna.tsinghua.edu.cn/alpine/"
+    },
+    "maven": {
+      "central": "https://maven.aliyun.com/repository/central",
+      "public": "https://maven.aliyun.com/repository/public",
+      "description": "阿里云 Maven 仓库"
+    },
+    "pypi": {
+      "index_url": "https://pypi.tuna.tsinghua.edu.cn/simple/",
+      "description": "清华大学 PyPI 镜像源",
+      "backup": "https://mirrors.aliyun.com/pypi/simple/"
+    },
+    "kind": {
+      "node_image": "kindest/node:v1.27.3",
+      "registry_mirror": "registry.aliyuncs.com/google_containers",
+      "description": "Kind 集群镜像配置"
+    },
+    "jenkins": {
+      "update_center": "https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json",
+      "plugin_mirror": "https://mirrors.tuna.tsinghua.edu.cn/jenkins/plugins/",
+      "description": "清华大学 Jenkins 镜像源"
+    },
+    "helm": {
+      "repository": "https://get.helm.sh/",
+      "description": "Helm 官方下载源",
+      "backup": "https://files.m.daocloud.io/get.helm.sh/",
+      "backup2": "https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts/"
+    },
+    "kubernetes_oss": {
+      "repository": "https://kubernetes.oss-cn-hangzhou.aliyuncs.com",
+      "description": "阿里云 Kubernetes OSS 镜像源"
+    },
+    "kubectl": {
+      "download_url": "https://dl.k8s.io/release",
+      "mirror_url": "https://dl.k8s.io/release",
+      "description": "kubectl 下载地址配置 - 使用官方源（国内镜像源不可用）",
+      "backup": "https://dl.k8s.io/release"
+    },
+    "kustomize": {
+      "download_url": "https://github.com/kubernetes-sigs/kustomize/releases/download",
+      "mirror_url": "https://files.m.daocloud.io/github.com/kubernetes-sigs/kustomize/releases/download",
+      "description": "kustomize 下载地址配置 - 使用DaoCloud加速源",
+      "backup": "https://github.com/kubernetes-sigs/kustomize/releases/download"
+    },
+    "kind_binary": {
+      "download_url": "https://github.com/kubernetes-sigs/kind/releases/download",
+      "mirror_url": "https://files.m.daocloud.io/github.com/kubernetes-sigs/kind/releases/download",
+      "description": "kind 二进制文件下载地址配置 - 使用DaoCloud加速源",
+      "backup": "https://github.com/kubernetes-sigs/kind/releases/download"
+    },
+    "docker_compose": {
+      "download_url": "https://github.com/docker/compose/releases/download",
+      "mirror_url": "https://files.m.daocloud.io/github.com/docker/compose/releases/download",
+      "description": "docker-compose 下载地址配置 - 使用DaoCloud加速源",
+      "backup": "https://github.com/docker/compose/releases/download"
+    },
+    "docker_ce": {
+      "repository": "https://mirrors.aliyun.com/docker-ce",
+      "description": "阿里云 Docker CE 镜像源",
+      "backup": "https://mirrors.tuna.tsinghua.edu.cn/docker-ce"
+    },
+    "nodejs": {
+      "repository": "https://deb.nodesource.com",
+      "description": "NodeSource 官方 Node.js 源",
+      "backup": "https://deb.nodesource.com",
+      "setup_script": "https://deb.nodesource.com/setup_18.x"
+    }
+  },
+  "usage_examples": {
+    "npm": "npm config set registry https://registry.npmmirror.com",
+    "docker": "在 /etc/docker/daemon.json 中配置 registry-mirrors",
+    "golang": "export GOPROXY=https://goproxy.cn,direct",
+    "ubuntu": "替换 /etc/apt/sources.list 中的源地址"
+  },
+  "notes": [
+    "此配置文件用于统一管理所有镜像源配置",
+    "建议定期更新镜像源地址以确保可用性",
+    "如果主镜像源不可用，可以使用备用镜像源",
+    "部分镜像源可能需要根据地区进行调整"
+  ]
+}

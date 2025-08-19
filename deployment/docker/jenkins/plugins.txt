@@ -1,84 +1,25 @@
-# Jenkins插件列表
-# 核心插件
-ant:475.vf34069fef73c
-build-timeout:1.31
-credentials-binding:681.vf91669a_32e45
-email-ext:2.102
-ldap:682.v7b_544c9d1512
-mailer:463.vedf8358e006b_
-matrix-auth:3.2.2
-pam-auth:1.10
-pipeline-stage-view:2.34
-ssh-slaves:2.916.vd17b_43357ce4
-timestamper:1.26
-workspace-cleanup:0.45
+# Jenkins核心插件列表（简化版）
+# 基础核心插件
+build-timeout
+credentials-binding
+timestamper
+ws-cleanup
 
 # Git相关
-git:5.2.2
-github:1.38.0
-github-branch-source:1791.v0f1c5e39b_44e
+git
 
 # Pipeline相关
-workflow-aggregator:596.v8c21c963d92d
-workflow-job:1400.v7fd111b_ec82f
-workflow-cps:3883.vb_3ff2a_a_d10eb_
-workflow-basic-steps:1058.vcb_fc1e3a_21a_9
-workflow-durable-task-step:1371.vb_7cec8f3b_95e
-workflow-scm-step:427.v4ca_6512e7df1
-workflow-support:907.v6713a_ed8a_573
-pipeline-build-step:540.vb_e8849e1a_b_d8
-pipeline-input-step:477.v339683a_8d55e
-pipeline-milestone-step:119.vdfdc43fc3b_9a_
-pipeline-stage-step:312.v8cd10304c27a_
+workflow-aggregator
+workflow-job
+workflow-cps
+workflow-basic-steps
+workflow-durable-task-step
+workflow-scm-step
+workflow-support
 
 # Docker相关
-docker-workflow:580.vc0c340686b_54
-docker-commons:439.va_3cb_0a_6a_fb_29
-docker-plugin:1.6.2
-
-# Kubernetes相关
-kubernetes:4246.v5a_12b_1fe120e
-kubernetes-credentials:0.11
-kubernetes-cli:1.12.1
-
-# Blue Ocean
-blueocean:1.27.11
-blueocean-pipeline-api-impl:1.27.11
-blueocean-pipeline-editor:1.27.11
-blueocean-autofavorite:1.2.5
-blueocean-bitbucket-pipeline:1.27.11
-blueocean-config:1.27.11
-blueocean-core-js:1.27.11
-blueocean-dashboard:1.27.11
-blueocean-display-url:2.4.2
-blueocean-events:1.27.11
-blueocean-git-pipeline:1.27.11
-blueocean-github-pipeline:1.27.11
-blueocean-i18n:1.27.11
-blueocean-jira:1.27.11
-blueocean-jwt:1.27.11
-blueocean-personalization:1.27.11
-blueocean-pipeline-scm-api:1.27.11
-blueocean-rest:1.27.11
-blueocean-rest-impl:1.27.11
-blueocean-web:1.27.11
-
-# 通知相关
-slack:664.vc9a_90f8b_c24a_
+docker-workflow
+docker-commons
 
 # 报告相关
-htmlpublisher:1.32
-junit:1265.v65b_14fa_f12f0
-
-# 安全相关
-matrix-project:822.v01b_8c85d16d2
-resource-disposer:0.23
-ws-cleanup:0.45
-
-# 其他实用插件
-build-name-setter:2.4.1
-config-file-provider:952.va_544a_6234b_46
-environment-injector:2.908.v66a_774b_31d93
-parameter-separator:1.3
-rebuild:1.34
-safe-restart:0.5
+junit

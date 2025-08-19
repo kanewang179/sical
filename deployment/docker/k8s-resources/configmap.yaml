@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sical-config
+  namespace: sical
+  labels:
+    app: sical-frontend
+data:
+  # 应用配置
+  app.env: "production"
+  api.base.url: "http://sical-backend:8080"
+  frontend.port: "80"
+  
+  # Nginx配置
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+        
+        # 处理前端路由
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+        
+        # API代理
+        location /api/ {
+            proxy_pass http://sical-backend:8080/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # 健康检查
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # 静态资源缓存
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sical-secrets
+  namespace: sical
+  labels:
+    app: sical-frontend
+type: Opaque
+data:
+  # Base64编码的密钥 (这里是示例，实际使用时应该使用真实的密钥)
+  api-key: c2ljYWwtYXBpLWtleQ==  # sical-api-key
+  jwt-secret: c2ljYWwtand0LXNlY3JldA==  # sical-jwt-secret

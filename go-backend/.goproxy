@@ -1,5 +1,5 @@
 # Go 模块代理配置
-GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
+GOPROXY=https://goproxy.cn,direct
 GOSUMDB=sum.golang.google.cn
 GONOPROXY=*.corp.example.com,rsc.io/private
 GONOSUMDB=*.corp.example.com,rsc.io/private

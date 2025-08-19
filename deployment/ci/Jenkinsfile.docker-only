@@ -1,0 +1,368 @@
+pipeline {
+    agent any
+    
+    environment {
+        // Docker-only 环境配置
+        PROJECT_NAME = 'sical'
+        FRONTEND_IMAGE = 'sical-frontend'
+        REGISTRY_URL = 'localhost:5000'
+        KUBE_NAMESPACE = 'sical'
+        CLUSTER_NAME = 'sical-cluster'
+        
+        // GitHub仓库配置（可通过环境变量覆盖）
+        GITHUB_REPO = env.GITHUB_REPO ?: 'https://github.com/kanewang179/sical.git'
+        GITHUB_BRANCH = 'main'
+        
+        // Docker 网络
+        DOCKER_NETWORK = 'sical-docker-only-network'
+        
+        // 构建配置
+        NODE_VERSION = '18'
+        BUILD_TIMESTAMP = "${new Date().format('yyyyMMdd-HHmmss')}"
+        IMAGE_TAG = "${REGISTRY_URL}/${FRONTEND_IMAGE}:${BUILD_TIMESTAMP}"
+        LATEST_TAG = "${REGISTRY_URL}/${FRONTEND_IMAGE}:latest"
+    }
+    
+    options {
+        // 保留最近10次构建
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // 超时设置
+        timeout(time: 30, unit: 'MINUTES')
+        // 时间戳
+        timestamps()
+        // 禁用并发构建
+        disableConcurrentBuilds()
+    }
+    
+    triggers {
+        // GitHub webhook 触发
+        githubPush()
+        // 定时检查 SCM 变更（每5分钟）
+        pollSCM('H/5 * * * *')
+    }
+    
+    stages {
+        stage('环境检查') {
+            steps {
+                script {
+                    echo "🔍 检查Docker-only环境..."
+                    
+                    // 检查Docker
+                    sh 'docker --version'
+                    sh 'docker-compose --version'
+                    
+                    // 检查网络连接
+                    sh '''
+                        if ! docker network ls | grep -q "${DOCKER_NETWORK}"; then
+                            echo "❌ Docker网络 ${DOCKER_NETWORK} 不存在"
+                            exit 1
+                        fi
+                        echo "✅ Docker网络检查通过"
+                    '''
+                    
+                    // 检查Registry
+                    sh '''
+                        if ! curl -f http://${REGISTRY_URL}/v2/ >/dev/null 2>&1; then
+                            echo "❌ Docker Registry ${REGISTRY_URL} 不可用"
+                            exit 1
+                        fi
+                        echo "✅ Docker Registry检查通过"
+                    '''
+                    
+                    // 检查Kind集群
+                    sh '''
+                        if ! docker exec sical-docker-only-kind-cluster-1 kubectl get nodes >/dev/null 2>&1; then
+                            echo "❌ Kind集群不可用"
+                            exit 1
+                        fi
+                        echo "✅ Kind集群检查通过"
+                    '''
+                }
+            }
+        }
+        
+        stage('代码检出') {
+            steps {
+                script {
+                    echo "📥 检出代码..."
+                    
+                    // 清理工作空间
+                    cleanWs()
+                    
+                    // 检出代码
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${GITHUB_BRANCH}"]],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [[
+                            $class: 'CleanBeforeCheckout'
+                        ]],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [[
+                            url: "${GITHUB_REPO}"
+                        ]]
+                    ])
+                    
+                    // 显示提交信息
+                    sh '''
+                        echo "📋 当前提交信息:"
+                        git log -1 --pretty=format:"提交: %H%n作者: %an <%ae>%n时间: %ad%n消息: %s" --date=format:"%Y-%m-%d %H:%M:%S"
+                    '''
+                }
+            }
+        }
+        
+        stage('前端测试') {
+            steps {
+                script {
+                    echo "🧪 运行前端测试..."
+                    
+                    dir('frontend') {
+                        // 在Docker容器中运行测试
+                        sh '''
+                            docker run --rm \
+                                --network ${DOCKER_NETWORK} \
+                                -v "${WORKSPACE}/frontend:/app" \
+                                -w /app \
+                                node:${NODE_VERSION}-alpine \
+                                sh -c "
+                                    echo '📦 安装依赖...' && \
+                                    npm ci && \
+                                    echo '🧪 运行测试...' && \
+                                    npm run test:ci
+                                "
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    // 发布测试结果
+                    publishTestResults testResultsPattern: 'frontend/test-results.xml'
+                }
+            }
+        }
+        
+        stage('前端构建') {
+            steps {
+                script {
+                    echo "🏗️ 构建前端应用..."
+                    
+                    dir('frontend') {
+                        // 在Docker容器中构建
+                        sh '''
+                            docker run --rm \
+                                --network ${DOCKER_NETWORK} \
+                                -v "${WORKSPACE}/frontend:/app" \
+                                -w /app \
+                                node:${NODE_VERSION}-alpine \
+                                sh -c "
+                                    echo '📦 安装依赖...' && \
+                                    npm ci && \
+                                    echo '🏗️ 构建应用...' && \
+                                    npm run build
+                                "
+                        '''
+                        
+                        // 验证构建结果
+                        sh '''
+                            if [ ! -d "dist" ]; then
+                                echo "❌ 构建失败：dist目录不存在"
+                                exit 1
+                            fi
+                            echo "✅ 前端构建完成"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Docker镜像构建') {
+            steps {
+                script {
+                    echo "🐳 构建Docker镜像..."
+                    
+                    dir('frontend') {
+                        // 构建Docker镜像
+                        sh '''
+                            echo "🏗️ 构建镜像: ${IMAGE_TAG}"
+                            docker build -t "${IMAGE_TAG}" -t "${LATEST_TAG}" .
+                            
+                            echo "📋 镜像信息:"
+                            docker images | grep "${FRONTEND_IMAGE}"
+                        '''
+                        
+                        // 推送到本地Registry
+                        sh '''
+                            echo "📤 推送镜像到Registry..."
+                            docker push "${IMAGE_TAG}"
+                            docker push "${LATEST_TAG}"
+                            
+                            echo "✅ 镜像推送完成"
+                        '''
+                        
+                        // 保存镜像信息
+                        sh '''
+                            echo "${IMAGE_TAG}" > "${WORKSPACE}/image-tag.txt"
+                            echo "构建时间: $(date)" > "${WORKSPACE}/build-info.txt"
+                            echo "提交哈希: $(git rev-parse HEAD)" >> "${WORKSPACE}/build-info.txt"
+                            echo "镜像标签: ${IMAGE_TAG}" >> "${WORKSPACE}/build-info.txt"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Kubernetes部署') {
+            steps {
+                script {
+                    echo "☸️ 部署到Kubernetes..."
+                    
+                    // 使用kubectl工具容器部署
+                    sh '''
+                        # 创建临时部署脚本
+                        cat > deploy-temp.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🚀 开始部署到Kubernetes..."
+
+# 检查kubectl连接
+if ! kubectl get nodes >/dev/null 2>&1; then
+    echo "❌ 无法连接到Kubernetes集群"
+    exit 1
+fi
+
+# 创建命名空间
+kubectl create namespace ${KUBE_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+# 应用Kubernetes资源
+echo "📋 应用Kubernetes资源..."
+
+# 更新部署镜像
+if kubectl get deployment frontend-deployment -n ${KUBE_NAMESPACE} >/dev/null 2>&1; then
+    echo "🔄 更新现有部署..."
+    kubectl set image deployment/frontend-deployment frontend=${IMAGE_TAG} -n ${KUBE_NAMESPACE}
+else
+    echo "🆕 创建新部署..."
+    # 这里应用Kubernetes资源文件
+    find /workspace/deployment/k8s -name "*.yaml" -exec kubectl apply -f {} -n ${KUBE_NAMESPACE} \;
+fi
+
+# 等待部署完成
+echo "⏳ 等待部署完成..."
+kubectl rollout status deployment/frontend-deployment -n ${KUBE_NAMESPACE} --timeout=300s
+
+# 验证部署
+echo "✅ 验证部署状态..."
+kubectl get pods -n ${KUBE_NAMESPACE}
+kubectl get services -n ${KUBE_NAMESPACE}
+
+echo "🎉 部署完成！"
+EOF
+
+                        chmod +x deploy-temp.sh
+                        
+                        # 在kubectl工具容器中执行部署
+                        docker run --rm \
+                            --network ${DOCKER_NETWORK} \
+                            -v "${WORKSPACE}:/workspace" \
+                            -v "/var/run/docker.sock:/var/run/docker.sock" \
+                            -e IMAGE_TAG="${IMAGE_TAG}" \
+                            -e KUBE_NAMESPACE="${KUBE_NAMESPACE}" \
+                            sical-kubectl-tools:latest \
+                            /workspace/deploy-temp.sh
+                        
+                        rm -f deploy-temp.sh
+                    '''
+                }
+            }
+        }
+        
+        stage('部署验证') {
+            steps {
+                script {
+                    echo "🔍 验证部署状态..."
+                    
+                    // 健康检查
+                    sh '''
+                        # 检查Pod状态
+                        docker exec sical-docker-only-kind-cluster-1 kubectl get pods -n ${KUBE_NAMESPACE}
+                        
+                        # 检查服务状态
+                        docker exec sical-docker-only-kind-cluster-1 kubectl get services -n ${KUBE_NAMESPACE}
+                        
+                        # 检查部署状态
+                        docker exec sical-docker-only-kind-cluster-1 kubectl get deployments -n ${KUBE_NAMESPACE}
+                        
+                        echo "✅ 部署验证完成"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                echo "📊 构建后处理..."
+                
+                // 归档构建产物
+                archiveArtifacts artifacts: 'image-tag.txt,build-info.txt', allowEmptyArchive: true
+                
+                // 清理临时文件
+                sh 'rm -f deploy-temp.sh'
+            }
+        }
+        
+        success {
+            script {
+                echo "🎉 Docker-only 部署成功！"
+                
+                // 发送成功通知
+                sh '''
+                    echo "📧 发送成功通知..."
+                    echo "构建 #${BUILD_NUMBER} 部署成功" > success-notification.txt
+                    echo "镜像标签: ${IMAGE_TAG}" >> success-notification.txt
+                    echo "部署时间: $(date)" >> success-notification.txt
+                    echo "访问地址: 通过Kubernetes Ingress" >> success-notification.txt
+                '''
+            }
+        }
+        
+        failure {
+            script {
+                echo "❌ Docker-only 部署失败！"
+                
+                // 收集错误信息
+                sh '''
+                    echo "📋 收集错误信息..."
+                    
+                    # 检查容器状态
+                    docker ps -a | grep sical || true
+                    
+                    # 检查Kubernetes状态
+                    docker exec sical-docker-only-kind-cluster-1 kubectl get pods -A || true
+                    
+                    # 收集日志
+                    docker logs sical-docker-only-kind-cluster-1 --tail=50 || true
+                '''
+            }
+        }
+        
+        cleanup {
+            script {
+                echo "🧹 清理工作空间..."
+                
+                // 清理Docker镜像（保留最新的）
+                sh '''
+                    # 清理旧的构建镜像
+                    docker images | grep "${FRONTEND_IMAGE}" | grep -v "latest" | tail -n +6 | awk '{print $3}' | xargs -r docker rmi || true
+                '''
+                
+                // 清理工作空间
+                cleanWs()
+            }
+        }
+    }
+}

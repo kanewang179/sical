@@ -1,0 +1,225 @@
+version: '3.8'
+
+services:
+  # 基础工具镜像 - 包含kubectl、helm、kustomize等工具
+  # 使用已构建的镜像，避免重复构建
+  base-tools:
+    # build:
+    #   context: ..
+    #   dockerfile: docker/Dockerfile.base-tools
+    #   args:
+    #     BUILDKIT_PROGRESS: plain
+    #     BUILDKIT_INLINE_CACHE: 1
+    #     KUBERNETES_OSS_REPO: ${KUBERNETES_OSS_REPO}
+    #     HELM_REPO: ${HELM_REPO}
+    #     GITHUB_PROXY: ${GITHUB_PROXY}
+    image: sical/base-tools:latest
+    container_name: base-tools
+    profiles:
+      - tools
+    networks:
+      - sical-docker-only
+
+  # Jenkins GitHub版本 - Docker-only配置
+  jenkins-github:
+    build:
+      context: ..
+      dockerfile: docker/jenkins/Dockerfile
+      args:
+        BUILDKIT_PROGRESS: plain
+        BUILDKIT_INLINE_CACHE: 1
+        DOCKER_HUB_PROXY: ${DOCKER_HUB_PROXY}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR}
+        DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR}
+        DOCKER_CE_MIRROR: ${DOCKER_CE_MIRROR}
+        KUBERNETES_OSS_REPO: ${KUBERNETES_OSS_REPO}
+        GITHUB_PROXY: ${GITHUB_PROXY}
+        HELM_REPO: ${HELM_REPO}
+        NODEJS_MIRROR: ${NODEJS_MIRROR}
+        JENKINS_UPDATE_CENTER: ${JENKINS_UPDATE_CENTER}
+    image: jenkins-github:docker-only
+    container_name: jenkins-github
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ../../jenkins-data-github:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./kubeconfig:/var/jenkins_home/.kube
+    environment:
+      - JENKINS_OPTS=--httpPort=8080
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - KUBECONFIG=/var/jenkins_home/.kube/config
+    networks:
+      - sical-docker-only
+    depends_on:
+      - registry
+      - kind-cluster
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 本地Docker Registry - 用于存储构建的镜像
+  registry:
+    image: registry:2
+    container_name: local-registry-docker-only
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data-docker-only:/var/lib/registry
+    networks:
+      - sical-docker-only
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/v2/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Kind Kubernetes集群容器
+  kind-cluster:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.kind
+    image: kind-cluster:docker-only
+    container_name: kind-cluster
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "6443:6443"  # Kubernetes API Server
+      - "80:80"      # Ingress HTTP
+      - "443:443"    # Ingress HTTPS
+    volumes:
+      - /var/lib/docker
+      - kind-cluster-data:/var/lib/docker
+      - ./kubeconfig:/shared/kubeconfig
+    environment:
+      - KIND_CLUSTER_NAME=sical-cluster
+      - KUBECONFIG=/shared/kubeconfig/config
+    networks:
+      - sical-docker-only
+    healthcheck:
+      test: ["CMD", "kubectl", "--kubeconfig=/shared/kubeconfig/config", "get", "nodes"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Kubernetes工具容器 - 用于管理K8s资源
+  kubectl-tools:
+    build:
+      context: ..
+      dockerfile: docker/kubectl/Dockerfile.kubectl
+    image: kubectl-tools:docker-only
+    container_name: kubectl-tools
+    restart: "no"
+    volumes:
+      - ./kubeconfig:/root/.kube
+      - ../../k8s:/k8s
+      - ../../frontend:/frontend
+    environment:
+      - KUBECONFIG=/root/.kube/config
+    networks:
+      - sical-docker-only
+    depends_on:
+      - kind-cluster
+    profiles:
+      - tools
+
+  # 前端构建容器 - 用于构建前端应用
+  frontend-builder:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile.multistage
+      target: builder
+    image: frontend-builder:docker-only
+    container_name: frontend-builder
+    restart: "no"
+    volumes:
+      - ../../frontend:/app
+      - frontend-dist:/app/dist
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=http://localhost:3000/api
+    networks:
+      - sical-docker-only
+    profiles:
+      - build
+
+  # Nginx Ingress Controller模拟器
+  nginx-ingress:
+    image: nginx:alpine
+    container_name: nginx-ingress-docker-only
+    restart: unless-stopped
+    ports:
+      - "8081:80"    # 前端应用访问端口
+    volumes:
+      - ./nginx/nginx-ingress.conf:/etc/nginx/nginx.conf:ro
+      - frontend-dist:/usr/share/nginx/html:ro
+    networks:
+      - sical-docker-only
+    depends_on:
+      - frontend-builder
+    profiles:
+      - ingress
+
+  # PostgreSQL数据库（可选）
+  postgres:
+    image: postgres:15-alpine
+    container_name: sical-postgres-docker-only
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: sical
+      POSTGRES_USER: sical
+      POSTGRES_PASSWORD: sical123
+    volumes:
+      - postgres-data-docker-only:/var/lib/postgresql/data
+    networks:
+      - sical-docker-only
+    profiles:
+      - database
+
+  # Redis缓存（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: sical-redis-docker-only
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-docker-only:/data
+    networks:
+      - sical-docker-only
+    profiles:
+      - cache
+
+volumes:
+  registry-data-docker-only:
+    driver: local
+  kind-cluster-data:
+    driver: local
+  frontend-dist:
+    driver: local
+  postgres-data-docker-only:
+    driver: local
+  redis-data-docker-only:
+    driver: local
+
+networks:
+  sical-docker-only:
+    driver: bridge
+    name: sical-docker-only-network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

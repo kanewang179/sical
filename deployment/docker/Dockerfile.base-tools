@@ -1,0 +1,91 @@
+# 基础工具镜像 - 包含常用的Kubernetes工具
+# 用于减少重复下载，提高构建效率
+FROM alpine:latest
+
+# 配置Alpine国内镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+# 安装基础工具
+RUN apk add --no-cache \
+    curl \
+    wget \
+    bash \
+    git \
+    jq \
+    yq \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
+
+# 定义镜像源变量（从 mirrors.json 读取）
+# 从mirrors.json读取镜像源配置
+COPY mirrors.json /tmp/mirrors.json
+COPY docker/read-mirrors.sh /tmp/read-mirrors.sh
+# 复制本地kubectl文件
+COPY docker/kubectl /tmp/kubectl
+RUN chmod +x /tmp/read-mirrors.sh && \
+    . /tmp/read-mirrors.sh && \
+    echo "KUBERNETES_OSS_REPO=${KUBERNETES_OSS_REPO}" >> /tmp/mirrors.env && \
+    echo "HELM_REPO=${HELM_REPO}" >> /tmp/mirrors.env && \
+    echo "HELM_REPOSITORY=${HELM_REPOSITORY}" >> /tmp/mirrors.env && \
+    echo "KUBECTL_DOWNLOAD_URL=${KUBECTL_DOWNLOAD_URL}" >> /tmp/mirrors.env && \
+    echo "KUBECTL_MIRROR_URL=${KUBECTL_MIRROR_URL}" >> /tmp/mirrors.env && \
+    echo "KUSTOMIZE_DOWNLOAD_URL=${KUSTOMIZE_DOWNLOAD_URL}" >> /tmp/mirrors.env && \
+    echo "KIND_BINARY_DOWNLOAD_URL=${KIND_BINARY_DOWNLOAD_URL}" >> /tmp/mirrors.env && \
+    echo "DOCKER_COMPOSE_DOWNLOAD_URL=${DOCKER_COMPOSE_DOWNLOAD_URL}" >> /tmp/mirrors.env
+
+# 安装 kubectl (使用本地文件)
+RUN echo "Installing tools for linux/amd64 architecture" && \
+    echo "使用本地 kubectl 文件..." && \
+    cp /tmp/kubectl /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl
+
+# 安装 helm (使用mirrors.json配置)
+RUN . /tmp/mirrors.env && \
+    echo "尝试从镜像源下载 helm..." && \
+    if curl -fsSL "${HELM_REPOSITORY}helm-v3.17.4-linux-amd64.tar.gz" | tar -xz && [ -f linux-amd64/helm ]; then \
+        echo "使用官方源下载 helm..."; \
+        mv linux-amd64/helm /usr/local/bin/helm && \
+        rm -rf linux-amd64; \
+    elif curl -fsSL "https://files.m.daocloud.io/get.helm.sh/helm-v3.17.4-linux-amd64.tar.gz" | tar -xz && [ -f linux-amd64/helm ]; then \
+        echo "官方源失败，使用DaoCloud加速源..."; \
+        mv linux-amd64/helm /usr/local/bin/helm && \
+        rm -rf linux-amd64; \
+    elif curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && [ -s get_helm.sh ]; then \
+        echo "镜像源失败，使用官方安装脚本..."; \
+        chmod 700 get_helm.sh && \
+        ./get_helm.sh && \
+        rm get_helm.sh; \
+    else \
+        echo "helm下载失败，跳过安装"; \
+    fi
+
+# 安装 kustomize (使用mirrors.json配置)
+RUN . /tmp/mirrors.env && \
+    echo "下载 kustomize..." && \
+    curl -fsSL "${KUSTOMIZE_DOWNLOAD_URL}/kustomize%2Fv5.2.1/kustomize_v5.2.1_linux_amd64.tar.gz" | tar -xz && \
+    mv kustomize /usr/local/bin/
+
+# 安装 kind (使用mirrors.json配置)
+RUN . /tmp/mirrors.env && \
+    echo "下载 kind..." && \
+    curl -Lo ./kind "${KIND_BINARY_DOWNLOAD_URL}/v0.20.0/kind-linux-amd64" && \
+    chmod +x ./kind && \
+    mv ./kind /usr/local/bin/kind
+
+# 安装 docker-compose (使用mirrors.json配置)
+RUN . /tmp/mirrors.env && \
+    echo "下载 docker-compose..." && \
+    curl -L "${DOCKER_COMPOSE_DOWNLOAD_URL}/v2.20.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose
+
+# 验证工具安装
+RUN kubectl version --client && \
+    helm version && \
+    kustomize version && \
+    kind version
+
+# 设置工作目录
+WORKDIR /workspace
+
+# 默认命令
+CMD ["/bin/bash"]
