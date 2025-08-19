@@ -168,3 +168,7 @@ deployment/docker/kubeconfig/
 # Local development
 .local/
 local-*
+
+
+
+jenkins.credential.grovy
